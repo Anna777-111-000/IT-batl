@@ -1,0 +1,10 @@
+{% if voted %}
+  <span class="btn" style="background:#3fb950;cursor:default">
+    ✔ Голос учтён
+  </span>
+{% else %}
+  <button hx-post="{% url 'battles:cast_vote' submission.pk %}"
+          hx-swap="outerHTML">
+    Голосовать за «{{ submission.team.name }}»
+  </button>
+{% endif %}

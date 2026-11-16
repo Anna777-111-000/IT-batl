@@ -1,8 +1,9 @@
 from django.http import HttpResponse
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import BattleEvent, Submission
+from django.views.decorators.http import require_POST
+from .models import BattleEvent, Submission, Vote
 
 
 def battle_list(request):
@@ -56,15 +57,71 @@ def submission_form(request, pk):
 
 
 def vote_page(request, pk):
-    return HttpResponse(f"Голосование баттла #{pk} (заглушка)")
+    battle = get_object_or_404(BattleEvent, pk=pk)
+    submissions = (
+        Submission.objects.filter(battle=battle)
+        .select_related("team")
+        .order_by("team__name")
+    )
+
+    if not request.session.session_key:
+        request.session.create()
+    session_key = request.session.session_key
+
+    voted_ids = set(
+        Vote.objects.filter(
+            submission__battle=battle, session_key=session_key
+        ).values_list("submission_id", flat=True)
+    )
+
+    return render(
+        request,
+        "battles/vote_page.html",
+        {
+            "battle": battle,
+            "submissions": submissions,
+            "voted_ids": voted_ids,
+            "already_voted": bool(voted_ids),
+        },
+    )
 
 
 def host_dashboard(request, pk):
     return HttpResponse(f"Проектор баттла #{pk} (заглушка)")
 
 
+@require_POST
 def cast_vote(request, submission_id):
-    return HttpResponse(f"Голос за решение #{submission_id} (заглушка)")
+    submission = get_object_or_404(
+        Submission.objects.select_related("battle", "team"), pk=submission_id
+    )
+    battle = submission.battle
+
+    if battle.status != BattleEvent.Status.VOTING:
+        return HttpResponseForbidden("Голосование закрыто")
+
+    if not request.session.session_key:
+        request.session.create()
+    session_key = request.session.session_key
+
+    # один голос с устройства на весь баттл
+    already_voted_in_battle = Vote.objects.filter(
+        submission__battle=battle, session_key=session_key
+    ).exists()
+
+    if not already_voted_in_battle:
+        Vote.objects.create(
+            submission=submission,
+            session_key=session_key,
+            voter_ip=request.META.get("REMOTE_ADDR"),
+            score=1,
+        )
+
+    return render(
+        request,
+        "battles/partials/vote_button.html",
+        {"submission": submission, "voted": True},
+    )
 
 
 def results_fragment(request, pk):

@@ -1,0 +1,32 @@
+{% extends "battles/base.html" %}
+{% block title %}{{ battle.title }} — голосование{% endblock %}
+
+{% block content %}
+<h1>{{ battle.title }}</h1>
+<p class="muted">
+  Статус: <b>{{ battle.get_status_display }}</b> ·
+  Голосуйте за лучшее решение — один голос с устройства.
+</p>
+
+{% if already_voted %}
+  <div class="card" style="border-color:#3fb950;color:#3fb950">
+    ✅ Вы уже проголосовали в этом баттле. Спасибо!
+  </div>
+{% endif %}
+
+{% for sub in submissions %}
+  <div class="card">
+    <h3 style="margin-bottom:.5rem">👥 {{ sub.team.name }}</h3>
+    <pre>{{ sub.code_snapshot }}</pre>
+    {% if sub.id in voted_ids %}
+      {% include "battles/partials/vote_button.html" with submission=sub voted=True %}
+    {% else %}
+      {% include "battles/partials/vote_button.html" with submission=sub voted=False %}
+    {% endif %}
+  </div>
+{% empty %}
+  <p>Пока нет решений для голосования.</p>
+{% endfor %}
+
+<p><a href="{% url 'battles:battle_list' %}">← ко всем баттлам</a></p>
+{% endblock %}
