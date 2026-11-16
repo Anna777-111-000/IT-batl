@@ -1,0 +1,26 @@
+{% extends "battles/base.html" %}
+{% block title %}Баттлы{% endblock %}
+
+{% block content %}
+<h1>🔥 ИТ-баттлы</h1>
+<p class="muted">Список всех соревнований</p>
+
+{% for battle in battles %}
+  <div class="card">
+    <h2>{{ battle.title }}</h2>
+    <p class="muted">
+      {{ battle.scheduled_at|date:"d.m.Y H:i" }} ·
+      Статус: <b>{{ battle.get_status_display }}</b>
+    </p>
+    <a href="{% url 'battles:battle_detail' battle.pk %}" class="btn">Открыть</a>
+    {% if battle.status == "submission" %}
+      <a href="{% url 'battles:submission_form' battle.pk %}" class="btn">Отправить решение</a>
+    {% elif battle.status == "voting" %}
+      <a href="{% url 'battles:vote_page' battle.pk %}" class="btn">Голосовать</a>
+    {% endif %}
+    <a href="{% url 'battles:host_dashboard' battle.pk %}" class="btn" style="background:#1f6feb">Проектор</a>
+  </div>
+{% empty %}
+  <p>Пока нет баттлов. Создайте в <a href="/admin/">админке</a>.</p>
+{% endfor %}
+{% endblock %}

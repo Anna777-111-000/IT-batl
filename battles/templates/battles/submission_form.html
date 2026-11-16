@@ -1,0 +1,58 @@
+{% extends "battles/base.html" %}
+{% block title %}{{ battle.title }} — отправка решения{% endblock %}
+
+{% block content %}
+<h1>{{ battle.title }} — отправка решения</h1>
+<p class="muted">
+  Статус баттла: <b>{{ battle.get_status_display }}</b>
+</p>
+
+{% if battle.status != "submission" %}
+  <div class="card" style="border-color:#f85149">
+    ⚠️ Приём решений сейчас закрыт. Дождитесь открытия раунда.
+  </div>
+{% endif %}
+
+{% if error %}
+  <div class="card" style="border-color:#f85149;color:#f85149">❌ {{ error }}</div>
+{% endif %}
+
+{% if success %}
+  <div class="card" style="border-color:#3fb950;color:#3fb950">
+    ✅ Решение сохранено! Можно отправить заново — перезапишет предыдущее.
+  </div>
+{% endif %}
+
+<form method="post" class="card">
+  {% csrf_token %}
+
+  <label style="display:block;margin-bottom:.75rem">
+    <span style="display:block;margin-bottom:.25rem">Команда:</span>
+    <select name="team" required style="width:100%;max-width:400px">
+      <option value="">— выберите команду —</option>
+      {% for t in teams %}
+        <option value="{{ t.pk }}">
+          {{ t.name }}{% if t.pk in submitted_team_ids %} (уже отправили — перезапишется){% endif %}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label style="display:block;margin-bottom:.75rem">
+    <span style="display:block;margin-bottom:.25rem">Код решения:</span>
+    <textarea name="code" rows="20" required
+              style="width:100%"
+              placeholder="Вставьте сюда ваш код..."></textarea>
+  </label>
+
+  <button type="submit" {% if battle.status != "submission" %}disabled{% endif %}>
+    Отправить решение
+  </button>
+</form>
+
+<p class="muted">
+  💡 Повторная отправка перезапишет предыдущее решение, пока идёт раунд.
+</p>
+
+<p><a href="{% url 'battles:battle_list' %}">← ко всем баттлам</a></p>
+{% endblock %}
