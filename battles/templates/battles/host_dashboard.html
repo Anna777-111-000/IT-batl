@@ -1,0 +1,26 @@
+{% extends "battles/base.html" %}
+{% block title %}{{ battle.title }} — Проектор{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center;">
+  <div>
+    <h1>📺 Экран ведущего</h1>
+    <p class="muted">
+      {{ battle.title }} · Статус: <b>{{ battle.get_status_display }}</b>
+    </p>
+  </div>
+  <div>
+    <a href="{% url 'battles:battle_list' %}" class="btn" style="background:#30363d">← На главную</a>
+  </div>
+</div>
+
+<!-- Блок с автообновлением через HTMX -->
+<div id="results-container"
+     hx-get="{% url 'battles:results_fragment' battle.pk %}"
+     hx-trigger="load, every 3s"
+     hx-swap="innerHTML">
+  <div class="card" style="text-align:center; padding: 3rem;">
+    <p>⏳ Загрузка результатов...</p>
+  </div>
+</div>
+{% endblock %}
