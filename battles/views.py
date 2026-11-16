@@ -1,8 +1,15 @@
-from django.http import HttpResponse
-from django.shortcuts import render
+import io
+import base64
+import qrcode
+
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_POST
+from django.urls import reverse
+from django.db.models import Count
+from pygments import highlight
+from pygments.lexers import PythonLexer
+from pygments.formatters import HtmlFormatter
 from .models import BattleEvent, Submission, Vote
 
 
@@ -10,8 +17,11 @@ def battle_list(request):
     battles = BattleEvent.objects.all()
     return render(request, "battles/battle_list.html", {"battles": battles})
 
+
 def battle_detail(request, pk):
-    return HttpResponse(f"Баттл #{pk} (заглушка)")
+    battle = get_object_or_404(BattleEvent, pk=pk)
+    return render(request, "battles/battle_detail.html", {"battle": battle})
+
 
 def submission_form(request, pk):
     battle = get_object_or_404(BattleEvent, pk=pk)
@@ -29,14 +39,13 @@ def submission_form(request, pk):
                 error = "Выберите команду и вставьте код."
             else:
                 team = get_object_or_404(battle.teams, pk=team_id)
-                submission, created = Submission.objects.update_or_create(
+                Submission.objects.update_or_create(
                     battle=battle,
                     team=team,
                     defaults={"code_snapshot": code},
                 )
                 success = True
 
-    # какие команды уже отправили — пометим в select
     submitted_team_ids = set(
         Submission.objects.filter(battle=battle).values_list("team_id", flat=True)
     )
@@ -52,8 +61,6 @@ def submission_form(request, pk):
             "success": success,
         },
     )
-
-
 
 
 def vote_page(request, pk):
@@ -86,10 +93,6 @@ def vote_page(request, pk):
     )
 
 
-def host_dashboard(request, pk):
-    return HttpResponse(f"Проектор баттла #{pk} (заглушка)")
-
-
 @require_POST
 def cast_vote(request, submission_id):
     submission = get_object_or_404(
@@ -104,7 +107,6 @@ def cast_vote(request, submission_id):
         request.session.create()
     session_key = request.session.session_key
 
-    # один голос с устройства на весь баттл
     already_voted_in_battle = Vote.objects.filter(
         submission__battle=battle, session_key=session_key
     ).exists()
@@ -124,5 +126,79 @@ def cast_vote(request, submission_id):
     )
 
 
+def host_dashboard(request, pk):
+    battle = get_object_or_404(BattleEvent, pk=pk)
+
+    # Генерация QR-кода на ссылку голосования
+    vote_url = request.build_absolute_uri(
+        reverse("battles:vote_page", args=[battle.pk])
+    )
+    qr = qrcode.make(vote_url)
+    buffer = io.BytesIO()
+    qr.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+    return render(request, "battles/host_dashboard.html", {
+        "battle": battle,
+        "vote_url": vote_url,
+        "qr_base64": qr_base64,
+    })
+
+
 def results_fragment(request, pk):
-    return HttpResponse(f"Результаты баттла #{pk} (заглушка)")
+    battle = get_object_or_404(BattleEvent, pk=pk)
+
+    submissions = (
+        Submission.objects.filter(battle=battle)
+        .select_related("team")
+        .annotate(votes_count=Count("votes"))
+        .order_by("-votes_count", "team__name")
+    )
+
+    formatter = HtmlFormatter(style="monokai", cssclass="highlight")
+
+    rendered_submissions = []
+    for sub in submissions:
+        code_html = highlight(sub.code_snapshot, PythonLexer(), formatter)
+        rendered_submissions.append({
+            "team_name": sub.team.name,
+            "votes_count": sub.votes_count,
+            "code_html": code_html,
+        })
+
+    context = {
+        "battle": battle,
+        "rendered_submissions": rendered_submissions,
+        "pygments_css": formatter.get_style_defs(".highlight"),
+    }
+    return render(request, "battles/partials/results.html", context)
+
+
+@require_POST
+def next_status(request, pk):
+    battle = get_object_or_404(BattleEvent, pk=pk)
+    order = [
+        BattleEvent.Status.WAITING,
+        BattleEvent.Status.SUBMISSION,
+        BattleEvent.Status.VOTING,
+        BattleEvent.Status.FINISHED,
+    ]
+    try:
+        current_idx = order.index(battle.status)
+    except ValueError:
+        current_idx = 0
+    battle.status = order[min(current_idx + 1, len(order) - 1)]
+    battle.save()
+    return redirect("battles:host_dashboard", pk=pk)
+
+
+@require_POST
+def update_status(request, pk):
+    battle = get_object_or_404(BattleEvent, pk=pk)
+    new_status = request.POST.get("status")
+
+    if new_status in BattleEvent.Status.values:
+        battle.status = new_status
+        battle.save()
+
+    return redirect("battles:host_dashboard", pk=pk)

@@ -2,16 +2,109 @@
 {% block title %}{{ battle.title }} — Проектор{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<style>
+  .host-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .status-panel {
+    display: flex;
+    gap: 0.5rem;
+    background: #161b22;
+    padding: 0.4rem;
+    border-radius: 10px;
+    border: 1px solid #30363d;
+  }
+  .status-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: #8b949e;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .status-btn:hover {
+    background: #21262d;
+    color: #e6edf3;
+  }
+  .status-btn.active {
+    background: #238636;
+    color: #fff;
+    box-shadow: 0 0 10px rgba(35, 134, 54, 0.4);
+  }
+  .qr-panel {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    background: #161b22;
+    border: 1px solid #30363d;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+  }
+  .qr-panel img {
+    width: 120px;
+    height: 120px;
+    background: #fff;
+    padding: 8px;
+    border-radius: 8px;
+  }
+</style>
+
+<div class="host-header">
   <div>
-    <h1>📺 Экран ведущего</h1>
-    <p class="muted">
-      {{ battle.title }} · Статус: <b>{{ battle.get_status_display }}</b>
+    <h1 style="margin-bottom: 0.5rem;">📺 Экран ведущего</h1>
+    <p class="muted" style="margin: 0;">
+      <b>{{ battle.title }}</b> · Голосов: {{ battle.submissions.count }} решений
     </p>
   </div>
   <div>
     <a href="{% url 'battles:battle_list' %}" class="btn" style="background:#30363d">← На главную</a>
   </div>
+</div>
+
+<div class="qr-panel">
+  <img src="data:image/png;base64,{{ qr_base64 }}" alt="QR">
+  <div>
+    <h3 style="margin: 0 0 0.5rem; color: #58a6ff;">📱 Голосуйте со смартфона</h3>
+    <p class="muted" style="margin: 0; line-height: 1.6;">
+      Наведите камеру телефона на QR-код.<br>
+      Или откройте ссылку: <a href="{{ vote_url }}" target="_blank" style="word-break: break-all;">{{ vote_url }}</a>
+    </p>
+  </div>
+</div>
+
+<!-- Панель управления статусом -->
+<div style="margin-bottom: 2rem;">
+  <p class="muted" style="margin-bottom: 0.5rem;">Управление статусом баттла:</p>
+  <form method="post" action="{% url 'battles:update_status' battle.pk %}">
+    {% csrf_token %}
+    <div class="status-panel">
+      <button type="submit" name="status" value="waiting"
+              class="status-btn {% if battle.status == 'waiting' %}active{% endif %}">
+        ⏳ Ожидание
+      </button>
+      <button type="submit" name="status" value="submission"
+              class="status-btn {% if battle.status == 'submission' %}active{% endif %}">
+        📝 Приём решений
+      </button>
+      <button type="submit" name="status" value="voting"
+              class="status-btn {% if battle.status == 'voting' %}active{% endif %}">
+        🗳️ Голосование
+      </button>
+      <button type="submit" name="status" value="finished"
+              class="status-btn {% if battle.status == 'finished' %}active{% endif %}">
+        🏁 Завершено
+      </button>
+    </div>
+  </form>
 </div>
 
 <!-- Блок с автообновлением через HTMX -->

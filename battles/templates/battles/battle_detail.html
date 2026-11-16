@@ -1,0 +1,19 @@
+{% extends "battles/base.html" %}
+{% block title %}{{ battle.title }}{% endblock %}
+
+{% block content %}
+<h1>{{ battle.title }}</h1>
+<p class="muted">Статус: <b>{{ battle.get_status_display }}</b> · Дата: {{ battle.scheduled_at|date:"d.m.Y H:i" }}</p>
+<p>{{ battle.description|default:"Описание отсутствует" }}</p>
+
+<div style="margin-top: 2rem;">
+  {% if battle.status == "submission" %}
+    <a href="{% url 'battles:submission_form' battle.pk %}" class="btn">📝 Отправить решение</a>
+  {% elif battle.status == "voting" %}
+    <a href="{% url 'battles:vote_page' battle.pk %}" class="btn">🗳️ Голосовать</a>
+  {% endif %}
+  <a href="{% url 'battles:host_dashboard' battle.pk %}" class="btn" style="background:#1f6feb">📺 Экран ведущего</a>
+</div>
+
+<p style="margin-top:2rem"><a href="{% url 'battles:battle_list' %}">← Назад ко всем баттлам</a></p>
+{% endblock %}

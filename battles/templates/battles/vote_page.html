@@ -2,6 +2,8 @@
 {% block title %}{{ battle.title }} — голосование{% endblock %}
 
 {% block content %}
+{% csrf_token %}
+
 <h1>{{ battle.title }}</h1>
 <p class="muted">
   Статус: <b>{{ battle.get_status_display }}</b> ·
